@@ -68,14 +68,16 @@ jobs:
       - name: Run container
         run: |
           docker run \
-            -d \
-            --name fastapi-tdd \
-            -e PORT=8765 \
-            -e ENVIRONMENT=dev \
-            -e DATABASE_URL=sqlite://sqlite.db \
-            -e DATABASE_TEST_URL=sqlite://sqlite.db \
-            -p 5003:8765 \
-            ${{ env.IMAGE }}-final:latest
+          -d \
+          --name fastapi-cv \
+          -e PORT=8765 \
+          -e ENVIRONMENT=dev \
+          -e DATABASE_URL=sqlite://sqlite.db \
+          -e DATABASE_TEST_URL=sqlite://sqlite.db \
+          -e TF_CPP_MIN_LOG_LEVEL=3 \
+          --memory=4g \
+          -p 5003:8765 \
+          ${{ env.IMAGE }}-final:latest
       - name: Pytest
         run: docker exec fastapi-tdd python -m pytest .
       - name: Flake8
