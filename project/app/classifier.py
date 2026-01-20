@@ -12,6 +12,7 @@ if os.getenv("TESTING") == "1":
 
     async def classify_image(prediction_id: int, image_path: str) -> None:
         return None  # Skip in tests
+
 else:
     from tensorflow.keras.applications.mobilenet_v2 import (
         MobileNetV2,
