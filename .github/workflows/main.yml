@@ -7,7 +7,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}/summarizer
+  IMAGE: ghcr.io/${{ github.repository }}/cv-classifier
 
 jobs:
 
@@ -124,18 +124,22 @@ jobs:
           scp -i ~/.ssh/id_rsa fastapi-image.tar.gz ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }}:~/
       
       - name: Deploy on EC2
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           ssh -i ~/.ssh/id_rsa ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
-            # Create app directory if it doesn't exist
+            set -e
+            
+            # Create app directory
             mkdir -p ${{ env.APP_DIR }}
             cd ${{ env.APP_DIR }}
             
-            # Load the new Docker image
+            # Load Docker image
             docker load < ~/fastapi-image.tar.gz
             rm ~/fastapi-image.tar.gz
             
             # Create docker-compose.yml
-            cat > docker-compose.yml << 'EOF'
+            cat > docker-compose.yml << 'COMPOSE_EOF'
           services:
             web:
               image: ${{ env.IMAGE }}-final:latest
@@ -165,24 +169,27 @@ jobs:
             postgres_data:
           EOF
             
+            # Replace DBPASS placeholder with actual password
+            sed -i "s/DBPASS/${{ secrets.DB_PASSWORD }}/g" docker-compose.yml
+            
             # Stop old containers
-            docker-compose down || true
+            docker compose down 2>/dev/null || true
             
             # Start new containers
-            docker-compose up -d
+            docker compose up -d
             
-            # Wait for services to be ready
-            sleep 10
+            # Wait for database
+            sleep 15
             
             # Run migrations
-            docker-compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || true
-            docker-compose exec -T web aerich init-db 2>/dev/null || true
-            docker-compose exec -T web aerich upgrade || true
+            docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || echo "Aerich already initialized"
+            docker compose exec -T web aerich init-db 2>/dev/null || echo "Database already initialized"
+            docker compose exec -T web aerich upgrade 2>/dev/null || echo "No migrations to apply"
             
             # Clean up old images
-            docker image prune -af --filter "until=24h" || true
+            docker image prune -af --filter "until=48h" || true
             
-            echo "Deployment completed successfully!"
+            echo "Deployment completed!"
           ENDSSH
       
       - name: Verify deployment
