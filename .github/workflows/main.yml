@@ -78,14 +78,16 @@ jobs:
           --memory=4g \
           -p 5003:8765 \
           ${{ env.IMAGE }}-final:latest
+      - name: Install test dependencies
+        run: docker exec fastapi-cv pip install black==25.1.0 flake8==7.2.0 isort==6.0.1 pytest==8.3.5
       - name: Pytest
-        run: docker exec fastapi-tdd python -m pytest .
+        run: docker exec fastapi-cv python -m pytest .
       - name: Flake8
-        run: docker exec fastapi-tdd python -m flake8 .
+        run: docker exec fastapi-cv python -m flake8 .
       - name: Black
-        run: docker exec fastapi-tdd python -m black . --check
+        run: docker exec fastapi-cv python -m black . --check
       - name: isort
-        run: docker exec fastapi-tdd python -m isort . --check-only
+        run: docker exec fastapi-cv python -m isort . --check-only
 
   deploy:
     name: Deploy to AWS EC2
