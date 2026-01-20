@@ -19,6 +19,7 @@ else:
         decode_predictions,
         preprocess_input,
     )
+
     from app.models.tortoise import ImagePrediction
 
     model = None
