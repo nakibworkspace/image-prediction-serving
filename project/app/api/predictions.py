@@ -9,7 +9,6 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Path, Uploa
 from app.api import crud
 from app.classifier import classify_image
 from app.models.pydantic import (
-    PredictionDetailSchema,
     PredictionResponseSchema,
     PredictionUpdateSchema,
 )

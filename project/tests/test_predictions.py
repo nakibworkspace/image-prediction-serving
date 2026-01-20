@@ -4,7 +4,6 @@ import io
 import json
 from datetime import datetime
 
-import pytest
 from PIL import Image
 
 from app.api import crud, predictions
