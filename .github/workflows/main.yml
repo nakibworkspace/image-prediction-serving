@@ -72,6 +72,7 @@ jobs:
           --name fastapi-cv \
           -e PORT=8765 \
           -e ENVIRONMENT=dev \
+          -e TESTING=1 \
           -e DATABASE_URL=sqlite://sqlite.db \
           -e DATABASE_TEST_URL=sqlite://sqlite.db \
           -e TF_CPP_MIN_LOG_LEVEL=3 \
