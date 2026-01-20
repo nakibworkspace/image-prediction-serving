@@ -1,27 +1,29 @@
 # project/tests/test_predictions.py
 
-import json
 import io
+import json
 from datetime import datetime
-from PIL import Image
+
 import pytest
+from PIL import Image
 
 from app.api import crud, predictions
 
-
 # In tests/test_predictions.py, update test_create_prediction:
+
 
 def test_create_prediction(test_app, monkeypatch):
     """Test image upload endpoint"""
+
     async def mock_create(filename, image_path):
         return 1
 
     monkeypatch.setattr(crud, "create", mock_create)
-    
+
     # ADD THIS - mock the classify_image function
     def mock_classify(prediction_id, image_path):
         return None
-    
+
     monkeypatch.setattr(predictions, "classify_image", mock_classify)
 
     # Create a dummy image file
@@ -77,6 +79,7 @@ def test_read_prediction(test_app, monkeypatch):
 
 def test_read_prediction_incorrect_id(test_app, monkeypatch):
     """Test getting non-existent prediction"""
+
     async def mock_get(id):
         return None
 
@@ -151,6 +154,7 @@ def test_remove_prediction(test_app, monkeypatch):
 
 def test_remove_prediction_incorrect_id(test_app, monkeypatch):
     """Test deleting non-existent prediction"""
+
     async def mock_get(id):
         return None
 

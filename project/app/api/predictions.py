@@ -3,17 +3,17 @@
 import os
 import shutil
 from typing import List
-from fastapi import APIRouter, HTTPException, Path, BackgroundTasks, UploadFile, File
+
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Path, UploadFile
 
 from app.api import crud
 from app.classifier import classify_image
 from app.models.pydantic import (
-    PredictionResponseSchema,
     PredictionDetailSchema,
+    PredictionResponseSchema,
     PredictionUpdateSchema,
 )
 from app.models.tortoise import PredictionSchema
-
 
 router = APIRouter()
 
@@ -29,25 +29,25 @@ async def create_prediction(
 ) -> PredictionResponseSchema:
     """
     Upload an image for classification
-    
+
     The image will be processed in the background and results
     will be available via the GET endpoint
     """
     # Validate file type
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
+
     # Save file
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
+
     # Create database record
     prediction_id = await crud.create(filename=file.filename, image_path=file_path)
-    
+
     # Schedule background classification
     background_tasks.add_task(classify_image, prediction_id, file_path)
-    
+
     return {"id": prediction_id, "filename": file.filename}
 
 
@@ -57,7 +57,7 @@ async def read_prediction(id: int = Path(..., gt=0)) -> PredictionSchema:
     prediction = await crud.get(id)
     if not prediction:
         raise HTTPException(status_code=404, detail="Prediction not found")
-    
+
     return prediction
 
 
@@ -73,13 +73,13 @@ async def delete_prediction(id: int = Path(..., gt=0)) -> PredictionResponseSche
     prediction = await crud.get(id)
     if not prediction:
         raise HTTPException(status_code=404, detail="Prediction not found")
-    
+
     # Delete image file if it exists
     if os.path.exists(prediction["image_path"]):
         os.remove(prediction["image_path"])
-    
+
     await crud.delete(id)
-    
+
     return {"id": id, "filename": prediction["filename"]}
 
 
@@ -92,5 +92,5 @@ async def update_prediction(
     prediction = await crud.update(id, payload.top_prediction, payload.confidence)
     if not prediction:
         raise HTTPException(status_code=404, detail="Prediction not found")
-    
+
     return prediction

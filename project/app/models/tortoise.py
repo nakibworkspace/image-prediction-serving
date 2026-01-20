@@ -8,6 +8,7 @@ class ImagePrediction(models.Model):
     """
     Stores image classification results
     """
+
     filename = fields.CharField(max_length=255)
     image_path = fields.TextField()
     top_prediction = fields.CharField(max_length=255, null=True)

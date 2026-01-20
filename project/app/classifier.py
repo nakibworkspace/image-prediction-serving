@@ -1,18 +1,18 @@
 # project/app/classifier.py
 
 import os
-from typing import List, Dict
+from typing import Dict, List
+
 import numpy as np
-from PIL import Image
 import tensorflow as tf
+from PIL import Image
 from tensorflow.keras.applications.mobilenet_v2 import (
     MobileNetV2,
-    preprocess_input,
     decode_predictions,
+    preprocess_input,
 )
 
 from app.models.tortoise import ImagePrediction
-
 
 # Load model once at module level for efficiency
 model = None
@@ -29,7 +29,7 @@ def get_model():
 async def classify_image(prediction_id: int, image_path: str) -> None:
     """
     Classify an image using MobileNetV2 and update the database
-    
+
     Args:
         prediction_id: Database ID of the prediction record
         image_path: Path to the image file
@@ -45,16 +45,15 @@ async def classify_image(prediction_id: int, image_path: str) -> None:
         # Get model and predict
         classifier = get_model()
         predictions = classifier.predict(img_array)
-        
+
         # Decode predictions
         decoded = decode_predictions(predictions, top=5)[0]
-        
+
         # Format results
         all_predictions = [
-            {"label": label, "confidence": float(conf)}
-            for (_, label, conf) in decoded
+            {"label": label, "confidence": float(conf)} for (_, label, conf) in decoded
         ]
-        
+
         top_label = decoded[0][1]
         top_confidence = float(decoded[0][2])
 
@@ -64,7 +63,7 @@ async def classify_image(prediction_id: int, image_path: str) -> None:
             confidence=top_confidence,
             all_predictions=all_predictions,
         )
-    
+
     except Exception as e:
         # Log error and update with error status
         print(f"Error classifying image: {e}")

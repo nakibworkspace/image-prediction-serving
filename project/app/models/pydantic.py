@@ -1,6 +1,7 @@
 # project/app/models/pydantic.py
 
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel
 
 
@@ -21,5 +22,6 @@ class PredictionDetailSchema(BaseModel):
 
 class PredictionUpdateSchema(BaseModel):
     """For manual updates if needed"""
+
     top_prediction: str
     confidence: float
