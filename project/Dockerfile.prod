@@ -3,7 +3,7 @@
 ###########
 
 # pull official base image
-FROM python:3.13.3-slim-bookworm AS builder
+FROM python:3.11-slim-bookworm AS builder
 
 # install system dependencies
 RUN apt-get update \
