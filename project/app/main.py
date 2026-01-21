@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 
 from app.api import ping, predictions
-from app.db import engine
+from app.db import init_db
 from app.models.models import Base
 
 log = logging.getLogger("uvicorn")
@@ -26,7 +26,7 @@ app = create_application()
 
 
 @app.on_event("startup")
-def startup():
+async def startup():
     log.info("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
+    await init_db()
     log.info("Database tables created!")
