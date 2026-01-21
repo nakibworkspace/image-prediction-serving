@@ -25,3 +25,7 @@ class PredictionUpdateSchema(BaseModel):
 
     top_prediction: str
     confidence: float
+
+
+# Alias for backward compatibility
+PredictionSchema = PredictionDetailSchema

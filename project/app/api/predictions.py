@@ -29,7 +29,7 @@ async def create_prediction(
         await f.write(content)
     
     prediction_id = await crud.create(session, file.filename, upload_path)  # ADD session
-    background_tasks.add_task(classify_image, upload_path, prediction_id)
+    background_tasks.add_task(classify_image, prediction_id, upload_path)
     
     return {"id": prediction_id, "filename": file.filename}
 

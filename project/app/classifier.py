@@ -18,8 +18,9 @@ else:
         decode_predictions,
         preprocess_input,
     )
+    from sqlalchemy import select
 
-    from app.db import SessionLocal
+    from app.db import async_session_maker
     from app.models.models import ImagePrediction
 
     model = None
@@ -51,33 +52,25 @@ else:
             top_label = decoded[0][1]
             top_confidence = float(decoded[0][2])
 
-            db = SessionLocal()
-            try:
-                prediction = (
-                    db.query(ImagePrediction)
-                    .filter(ImagePrediction.id == prediction_id)
-                    .first()
+            async with async_session_maker() as session:
+                result = await session.execute(
+                    select(ImagePrediction).where(ImagePrediction.id == prediction_id)
                 )
+                prediction = result.scalar_one_or_none()
                 if prediction:
                     prediction.top_prediction = top_label
                     prediction.confidence = top_confidence
                     prediction.all_predictions = all_predictions
-                    db.commit()
-            finally:
-                db.close()
+                    await session.commit()
 
         except Exception as e:
             print(f"Error classifying image: {e}")
-            db = SessionLocal()
-            try:
-                prediction = (
-                    db.query(ImagePrediction)
-                    .filter(ImagePrediction.id == prediction_id)
-                    .first()
+            async with async_session_maker() as session:
+                result = await session.execute(
+                    select(ImagePrediction).where(ImagePrediction.id == prediction_id)
                 )
+                prediction = result.scalar_one_or_none()
                 if prediction:
                     prediction.top_prediction = "Error"
                     prediction.confidence = 0.0
-                    db.commit()
-            finally:
-                db.close()
+                    await session.commit()

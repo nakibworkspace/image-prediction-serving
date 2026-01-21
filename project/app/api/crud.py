@@ -4,7 +4,7 @@ from typing import List, Union, Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.sqlalchemy import ImagePrediction
+from app.models.models import ImagePrediction
 
 
 async def create(session: AsyncSession, filename: str, image_path: str) -> int:
