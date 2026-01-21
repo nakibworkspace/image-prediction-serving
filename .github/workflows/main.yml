@@ -14,8 +14,6 @@ jobs:
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -91,10 +89,6 @@ jobs:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
     needs: [build, test]
-    env:
-      EC2_USER: ubuntu
-      APP_DIR: /home/ubuntu/fastapi-app
-      IMAGE_TAG: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -108,76 +102,64 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
       
-      - name: Log in to GitHub Packages
-        run: echo ${GITHUB_TOKEN} | docker login -u ${GITHUB_ACTOR} --password-stdin ghcr.io
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Pull latest image
-        run: |
-          docker pull ${{ env.IMAGE }}-final:latest
-      
       - name: Deploy on EC2
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} \
-            "DB_PASSWORD='${{ secrets.DB_PASSWORD }}' IMAGE='${{ env.IMAGE }}' bash -s" << 'ENDSSH'
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} << 'ENDSSH'
             set -e
             
-            # Login to GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull image directly
-            docker pull ${IMAGE}-final:latest
+            docker pull ${{ env.IMAGE }}-final:latest
             
             mkdir -p /home/ubuntu/fastapi-app
             cd /home/ubuntu/fastapi-app
             
-            cat > docker-compose.yml << EOF
-        services:
-          web:
-            image: ${IMAGE}-final:latest
-            command: gunicorn --bind 0.0.0.0:8000 app.main:app -k uvicorn.workers.UvicornWorker --workers 2
-            ports:
-              - "80:8000"
-            environment:
-              - ENVIRONMENT=prod
-              - TESTING=0
-              - DATABASE_URL=postgres://postgres:${DB_PASSWORD}@db:5432/fastapi_db
-              - PORT=8000
-            depends_on:
-              - db
-            restart: unless-stopped
-
-          db:
-            image: postgres:17
-            volumes:
-              - postgres_data:/var/lib/postgresql/data
-            environment:
-              - POSTGRES_USER=postgres
-              - POSTGRES_PASSWORD=${DB_PASSWORD}
-              - POSTGRES_DB=fastapi_db
-            restart: unless-stopped
-
-            volumes:
-                postgres_data:
-                  EOF
-                    sudo docker compose down 2>/dev/null || true
-                    sudo docker compose up -d
-                    sleep 15
-                    sudo docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || true
-                    sudo docker compose exec -T web aerich init-db 2>/dev/null || true
-                    sudo docker compose exec -T web aerich upgrade 2>/dev/null || true
-                  ENDSSH
+            cat > docker-compose.yml << 'COMPOSEEOF'
+          services:
+            web:
+              image: ${{ env.IMAGE }}-final:latest
+              command: gunicorn --bind 0.0.0.0:8000 app.main:app -k uvicorn.workers.UvicornWorker --workers 2
+              ports:
+                - "80:8000"
+              environment:
+                - ENVIRONMENT=prod
+                - TESTING=0
+                - DATABASE_URL=postgres://postgres:${{ secrets.DB_PASSWORD }}@db:5432/fastapi_db
+                - PORT=8000
+              depends_on:
+                - db
+              restart: unless-stopped
+            db:
+              image: postgres:17
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              environment:
+                - POSTGRES_USER=postgres
+                - POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
+                - POSTGRES_DB=fastapi_db
+              restart: unless-stopped
+          volumes:
+            postgres_data:
+          COMPOSEEOF
+            
+            sudo docker compose down 2>/dev/null || true
+            sudo docker compose up -d
+            sleep 15
+            sudo docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || true
+            sudo docker compose exec -T web aerich init-db 2>/dev/null || true
+            sudo docker compose exec -T web aerich upgrade 2>/dev/null || true
+            
+            echo "Deployment completed!"
+          ENDSSH
       
       - name: Verify deployment
         run: |
-          sleep 5
-          response=$(curl -s http://${{ secrets.EC2_HOST }}:8000/ping || echo "failed")
-          echo "Health check response: $response"
+          sleep 10
+          response=$(curl -s http://${{ secrets.EC2_HOST }}/ping || echo "failed")
+          echo "Response: $response"
           
           if echo "$response" | grep -q "pong"; then
             echo "Deployment successful!"
-            echo "Application is live at: http://${{ secrets.EC2_HOST }}:8000"
           else
             echo "Deployment verification failed"
             exit 1
@@ -188,9 +170,7 @@ jobs:
         run: |
           echo "## Deployment Complete!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Application deployed successfully to EC2" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Access URLs:" >> $GITHUB_STEP_SUMMARY
-          echo "- **API**: http://${{ secrets.EC2_HOST }}:8000" >> $GITHUB_STEP_SUMMARY
-          echo "- **Docs**: http://${{ secrets.EC2_HOST }}:8000/docs" >> $GITHUB_STEP_SUMMARY
-          echo "- **Health**: http://${{ secrets.EC2_HOST }}:8000/ping" >> $GITHUB_STEP_SUMMARY
+          echo "- API: http://${{ secrets.EC2_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docs: http://${{ secrets.EC2_HOST }}/docs" >> $GITHUB_STEP_SUMMARY
+          echo "- Health: http://${{ secrets.EC2_HOST }}/ping" >> $GITHUB_STEP_SUMMARY
