@@ -1,8 +1,14 @@
 # project/app/models/pydantic.py
 
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel
+
+
+class SinglePrediction(BaseModel):
+    label: str
+    confidence: float
 
 
 class PredictionResponseSchema(BaseModel):
@@ -16,8 +22,8 @@ class PredictionDetailSchema(BaseModel):
     image_path: str
     top_prediction: Optional[str] = None
     confidence: Optional[float] = None
-    all_predictions: Optional[List[Dict[str, float]]] = None
-    created_at: str
+    all_predictions: Optional[List[SinglePrediction]] = None
+    created_at: datetime
 
 
 class PredictionUpdateSchema(BaseModel):
