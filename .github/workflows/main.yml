@@ -158,17 +158,16 @@ jobs:
               - POSTGRES_DB=fastapi_db
             restart: unless-stopped
 
-              volumes:
+            volumes:
                 postgres_data:
-              EOF
-                    
-                      sudo docker compose down 2>/dev/null || true
-                      sudo docker compose up -d
-                      sleep 15
-                      sudo docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || true
-                      sudo docker compose exec -T web aerich init-db 2>/dev/null || true
-                      sudo docker compose exec -T web aerich upgrade 2>/dev/null || true
-                    ENDSSH
+                  EOF
+                    sudo docker compose down 2>/dev/null || true
+                    sudo docker compose up -d
+                    sleep 15
+                    sudo docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || true
+                    sudo docker compose exec -T web aerich init-db 2>/dev/null || true
+                    sudo docker compose exec -T web aerich upgrade 2>/dev/null || true
+                  ENDSSH
       
       - name: Verify deployment
         run: |
