@@ -8,18 +8,16 @@ from PIL import Image
 
 from app.api import crud, predictions
 
-# In tests/test_predictions.py, update test_create_prediction:
-
 
 def test_create_prediction(test_app, monkeypatch):
     """Test image upload endpoint"""
 
-    async def mock_create(filename, image_path):
+    async def mock_create(session, filename, image_path):
         return 1
 
     monkeypatch.setattr(crud, "create", mock_create)
 
-    # ADD THIS - mock the classify_image function
+    # Mock the classify_image function
     def mock_classify(prediction_id, image_path):
         return None
 
@@ -63,10 +61,10 @@ def test_read_prediction(test_app, monkeypatch):
             {"label": "golden_retriever", "confidence": 0.95},
             {"label": "labrador", "confidence": 0.03},
         ],
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.utcnow(),
     }
 
-    async def mock_get(id):
+    async def mock_get(session, id):
         return test_data
 
     monkeypatch.setattr(crud, "get", mock_get)
@@ -79,7 +77,7 @@ def test_read_prediction(test_app, monkeypatch):
 def test_read_prediction_incorrect_id(test_app, monkeypatch):
     """Test getting non-existent prediction"""
 
-    async def mock_get(id):
+    async def mock_get(session, id):
         return None
 
     monkeypatch.setattr(crud, "get", mock_get)
@@ -102,7 +100,7 @@ def test_read_all_predictions(test_app, monkeypatch):
             "top_prediction": "golden_retriever",
             "confidence": 0.95,
             "all_predictions": [],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
         },
         {
             "id": 2,
@@ -111,11 +109,11 @@ def test_read_all_predictions(test_app, monkeypatch):
             "top_prediction": "tabby_cat",
             "confidence": 0.89,
             "all_predictions": [],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow(),
         },
     ]
 
-    async def mock_get_all():
+    async def mock_get_all(session):
         return test_data
 
     monkeypatch.setattr(crud, "get_all", mock_get_all)
@@ -134,13 +132,13 @@ def test_remove_prediction(test_app, monkeypatch):
         "top_prediction": "golden_retriever",
         "confidence": 0.95,
         "all_predictions": [],
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.utcnow(),
     }
 
-    async def mock_get(id):
+    async def mock_get(session, id):
         return test_data
 
-    async def mock_delete(id):
+    async def mock_delete(session, id):
         return id
 
     monkeypatch.setattr(crud, "get", mock_get)
@@ -154,7 +152,7 @@ def test_remove_prediction(test_app, monkeypatch):
 def test_remove_prediction_incorrect_id(test_app, monkeypatch):
     """Test deleting non-existent prediction"""
 
-    async def mock_get(id):
+    async def mock_get(session, id):
         return None
 
     monkeypatch.setattr(crud, "get", mock_get)
@@ -168,6 +166,16 @@ def test_remove_prediction_incorrect_id(test_app, monkeypatch):
 
 def test_update_prediction(test_app, monkeypatch):
     """Test updating a prediction"""
+    test_data = {
+        "id": 1,
+        "filename": "test.jpg",
+        "image_path": "/path/to/test.jpg",
+        "top_prediction": "golden_retriever",
+        "confidence": 0.95,
+        "all_predictions": [],
+        "created_at": datetime.utcnow(),
+    }
+
     test_response = {
         "id": 1,
         "filename": "test.jpg",
@@ -175,12 +183,16 @@ def test_update_prediction(test_app, monkeypatch):
         "top_prediction": "labrador",
         "confidence": 0.98,
         "all_predictions": [],
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.utcnow(),
     }
 
-    async def mock_update(id, top_prediction, confidence):
+    async def mock_get(session, id):
+        return test_data
+
+    async def mock_update(session, id, top_prediction, confidence, all_predictions):
         return test_response
 
+    monkeypatch.setattr(crud, "get", mock_get)
     monkeypatch.setattr(crud, "update", mock_update)
 
     response = test_app.put(
