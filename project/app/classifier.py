@@ -11,8 +11,7 @@ if os.getenv("TESTING") == "1":
         return None
 
     async def classify_image(prediction_id: int, image_path: str) -> None:
-        return None  # Skip in tests
-
+        return None
 else:
     from tensorflow.keras.applications.mobilenet_v2 import (
         MobileNetV2,
@@ -20,7 +19,8 @@ else:
         preprocess_input,
     )
 
-    from app.models.tortoise import ImagePrediction
+    from app.db import SessionLocal
+    from app.models.models import ImagePrediction
 
     model = None
 
@@ -51,14 +51,33 @@ else:
             top_label = decoded[0][1]
             top_confidence = float(decoded[0][2])
 
-            await ImagePrediction.filter(id=prediction_id).update(
-                top_prediction=top_label,
-                confidence=top_confidence,
-                all_predictions=all_predictions,
-            )
+            db = SessionLocal()
+            try:
+                prediction = (
+                    db.query(ImagePrediction)
+                    .filter(ImagePrediction.id == prediction_id)
+                    .first()
+                )
+                if prediction:
+                    prediction.top_prediction = top_label
+                    prediction.confidence = top_confidence
+                    prediction.all_predictions = all_predictions
+                    db.commit()
+            finally:
+                db.close()
+
         except Exception as e:
             print(f"Error classifying image: {e}")
-            await ImagePrediction.filter(id=prediction_id).update(
-                top_prediction="Error",
-                confidence=0.0,
-            )
+            db = SessionLocal()
+            try:
+                prediction = (
+                    db.query(ImagePrediction)
+                    .filter(ImagePrediction.id == prediction_id)
+                    .first()
+                )
+                if prediction:
+                    prediction.top_prediction = "Error"
+                    prediction.confidence = 0.0
+                    db.commit()
+            finally:
+                db.close()
