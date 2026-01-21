@@ -117,82 +117,58 @@ jobs:
         run: |
           docker pull ${{ env.IMAGE }}-final:latest
       
-      - name: Save and transfer Docker image
-        run: |
-          # Save image to tar
-          docker save ${{ env.IMAGE }}-final:latest | gzip > fastapi-image.tar.gz
-          
-          # Transfer to EC2
-          scp -i ~/.ssh/id_rsa fastapi-image.tar.gz ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }}:~/
-      
       - name: Deploy on EC2
-        env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.EC2_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} \
+            "DB_PASSWORD='${{ secrets.DB_PASSWORD }}' IMAGE='${{ env.IMAGE }}' bash -s" << 'ENDSSH'
             set -e
             
-            # Create app directory
-            mkdir -p ${{ env.APP_DIR }}
-            cd ${{ env.APP_DIR }}
+            # Login to GHCR
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Load Docker image
-            docker load < ~/fastapi-image.tar.gz
-            rm ~/fastapi-image.tar.gz
+            # Pull image directly
+            docker pull ${IMAGE}-final:latest
             
-            # Create docker-compose.yml
-            cat > docker-compose.yml << 'COMPOSE_EOF'
-          services:
-            web:
-              image: ${{ env.IMAGE }}-final:latest
-              command: gunicorn --bind 0.0.0.0:8000 app.main:app -k uvicorn.workers.UvicornWorker --workers 2
-              ports:
-                - "8000:8000"
-              environment:
-                - ENVIRONMENT=prod
-                - TESTING=0
-                - DATABASE_URL=postgres://postgres:${{ secrets.DB_PASSWORD }}@db:5432/fastapi_db
-                - PORT=8000
-              depends_on:
-                - db
-              restart: unless-stopped
+            mkdir -p /home/ubuntu/fastapi-app
+            cd /home/ubuntu/fastapi-app
+            
+            cat > docker-compose.yml << EOF
+        services:
+          web:
+            image: ${IMAGE}-final:latest
+            command: gunicorn --bind 0.0.0.0:8000 app.main:app -k uvicorn.workers.UvicornWorker --workers 2
+            ports:
+              - "80:8000"
+            environment:
+              - ENVIRONMENT=prod
+              - TESTING=0
+              - DATABASE_URL=postgres://postgres:${DB_PASSWORD}@db:5432/fastapi_db
+              - PORT=8000
+            depends_on:
+              - db
+            restart: unless-stopped
 
-            db:
-              image: postgres:17
+          db:
+            image: postgres:17
+            volumes:
+              - postgres_data:/var/lib/postgresql/data
+            environment:
+              - POSTGRES_USER=postgres
+              - POSTGRES_PASSWORD=${DB_PASSWORD}
+              - POSTGRES_DB=fastapi_db
+            restart: unless-stopped
+
               volumes:
-                - postgres_data:/var/lib/postgresql/data
-              environment:
-                - POSTGRES_USER=postgres
-                - POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }}
-                - POSTGRES_DB=fastapi_db
-              restart: unless-stopped
-
-          volumes:
-            postgres_data:
-          EOF
-            
-            # Replace DBPASS placeholder with actual password
-            sed -i "s/DBPASS/${{ secrets.DB_PASSWORD }}/g" docker-compose.yml
-            
-            # Stop old containers
-            docker compose down 2>/dev/null || true
-            
-            # Start new containers
-            docker compose up -d
-            
-            # Wait for database
-            sleep 15
-            
-            # Run migrations
-            docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || echo "Aerich already initialized"
-            docker compose exec -T web aerich init-db 2>/dev/null || echo "Database already initialized"
-            docker compose exec -T web aerich upgrade 2>/dev/null || echo "No migrations to apply"
-            
-            # Clean up old images
-            docker image prune -af --filter "until=48h" || true
-            
-            echo "Deployment completed!"
-          ENDSSH
+                postgres_data:
+              EOF
+                    
+                      sudo docker compose down 2>/dev/null || true
+                      sudo docker compose up -d
+                      sleep 15
+                      sudo docker compose exec -T web aerich init -t app.db.TORTOISE_ORM 2>/dev/null || true
+                      sudo docker compose exec -T web aerich init-db 2>/dev/null || true
+                      sudo docker compose exec -T web aerich upgrade 2>/dev/null || true
+                    ENDSSH
       
       - name: Verify deployment
         run: |
