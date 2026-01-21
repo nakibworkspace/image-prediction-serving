@@ -11,16 +11,17 @@ if os.getenv("TESTING") == "1":
         return None
 
     async def classify_image(prediction_id: int, image_path: str) -> None:
-        return None  # Skip in tests
-
+        return None
 else:
     from tensorflow.keras.applications.mobilenet_v2 import (
         MobileNetV2,
         decode_predictions,
         preprocess_input,
     )
+    from sqlalchemy import select
 
-    from app.models.tortoise import ImagePrediction
+    from app.db import async_session_maker
+    from app.models.models import ImagePrediction
 
     model = None
 
@@ -51,14 +52,25 @@ else:
             top_label = decoded[0][1]
             top_confidence = float(decoded[0][2])
 
-            await ImagePrediction.filter(id=prediction_id).update(
-                top_prediction=top_label,
-                confidence=top_confidence,
-                all_predictions=all_predictions,
-            )
+            async with async_session_maker() as session:
+                result = await session.execute(
+                    select(ImagePrediction).where(ImagePrediction.id == prediction_id)
+                )
+                prediction = result.scalar_one_or_none()
+                if prediction:
+                    prediction.top_prediction = top_label
+                    prediction.confidence = top_confidence
+                    prediction.all_predictions = all_predictions
+                    await session.commit()
+
         except Exception as e:
             print(f"Error classifying image: {e}")
-            await ImagePrediction.filter(id=prediction_id).update(
-                top_prediction="Error",
-                confidence=0.0,
-            )
+            async with async_session_maker() as session:
+                result = await session.execute(
+                    select(ImagePrediction).where(ImagePrediction.id == prediction_id)
+                )
+                prediction = result.scalar_one_or_none()
+                if prediction:
+                    prediction.top_prediction = "Error"
+                    prediction.confidence = 0.0
+                    await session.commit()
